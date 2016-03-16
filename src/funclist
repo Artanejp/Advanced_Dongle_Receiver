@@ -1,0 +1,10 @@
+_reset_switches: CODE, 409 0 17
+_wait_tmr1: CODE, 391 0 18
+_intr_handler: CODE, 4 0 67
+_main: CODE, 208 0 106
+_change_receiver: CODE, 361 0 30
+___lmul: CODE, 314 0 47
+__initialization: CODE, 73 0 10
+_set_timer1: CODE, 87 0 121
+_accept_command: CODE, 426 0 12
+Total: 428
