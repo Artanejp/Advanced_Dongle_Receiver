@@ -180,31 +180,31 @@ void check_sw3(void)
 
 void change_receiver(int type)
 {
-    unsigned char ntmp = LATB & 0b11000111;
+    unsigned char ntmp = LATA & 0b11100011;
     switch(type){
         case receiver_swmw:
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "        ");
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "SW/MW");
-            LATB = ntmp | 0b00110000 ;
-            LATC = 0b00000001;
+            LATA = ntmp | 0b00000100 ;
+            LATC = 0b00000110;
             break;
         case receiver_fm:
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "        ");
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "FM1");
-            LATC = 0b00000010;
-            LATB = ntmp | 0b00101000 ;
+            LATC = 0b00000101;
+            LATA = ntmp | 0b00001000;
             break;
         case receiver_uhf:
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "        ");
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "ANT2");
-            LATC = 0b00000100;
-            LATB = ntmp | 0b00011000 ;
+            LATC = 0b00000011;
+            LATA = ntmp | 0b00010000;
             break;
     }
 }
