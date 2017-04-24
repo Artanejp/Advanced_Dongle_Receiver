@@ -33,7 +33,8 @@ static void _AQM0802_TC_WAIT(void)
 #ifdef __SDCC
    delay10tcy(4);
 #else
-   __delay_us(28);
+//   __delay_us(28);
+   wait_tmr1(1);
 #endif
 }
 
@@ -46,19 +47,19 @@ static void sendcmd(unsigned char addr, unsigned char cmd, unsigned char data)
 {
     i2c_send_byte(addr, cmd, data);
     // End of Command.
-    _AQM0802_SHORT_WAIT(); // Wait 50us
+    _AQM0802_TC_WAIT(); // Wait 50us
 }
 
 static void sendonce(unsigned char addr, unsigned char cmd)
 {
     i2c_send_byte(addr, 0x00, cmd);
-    _AQM0802_SHORT_WAIT(); // Wait 50us
+    _AQM0802_TC_WAIT(); // Wait 50us
 }
 
 void aqm0802_putchar(unsigned char addr, unsigned char c)
 {
     sendcmd(addr, 0x40, c);
-    _AQM0802_SHORT_WAIT(); // Wait 0.1ms
+    _AQM0802_TC_WAIT(); // Wait 0.1ms
 }
 
 
@@ -72,7 +73,7 @@ void aqm0802_setdataramaddress(unsigned char addr, unsigned char pos)
 void aqm0802_locate_8x2(unsigned char addr, char x, char y)
 {
     unsigned char ramaddr;
-    if((x >= 8) || (x < 0)) return; 
+    if((x >= 16) || (x < 0)) return; 
     if((y >= 2) || (y < 0)) return; 
     ramaddr = (y == 0)? x & 0x1f : (x & 0x1f) | 0x40;
     aqm0802_setdataramaddress(addr, ramaddr);
@@ -126,13 +127,21 @@ void aqm0802_init(unsigned char addr, unsigned char cls)
     int i;
     //aqm0802_ioinit(addr);
     for(i = 0; i < 25; i++) wait_tmr1(5);
-   sendonce(addr, 0x38); // 2lines, 8x10dot fonts.
+    sendonce(addr, 0x38); // 2lines, 8x10dot fonts.
     sendonce(addr, 0x39); // 2lines, 8x10dot fonts.
     sendonce(addr, 0x14); // 2lines, 8x10dot fonts.
-    sendonce(addr, 0x70); // 2lines, 8x10dot fonts.
+    sendonce(addr, 0x73); // 2lines, 8x10dot fonts.
     sendonce(addr, 0x56); // 2lines, 8x10dot fonts.
     sendonce(addr, 0x6c); // 2lines, 8x10dot fonts.
+    
+    for(i = 0; i < 21; i++) wait_tmr1(10);
     sendonce(addr, 0x38); // 2lines, 8x10dot fonts.
+    sendonce(addr, 0x01); // 2lines, 8x10dot fonts.
+    
+    sendonce(addr, 0x39);
+    sendonce(addr, 0x54); // Booster ON
+    sendonce(addr, 0x7f);  // Contrast = 0x0f
+    sendonce(addr, 0x38);
     //sendcmd(addr, 0x28, 0xff); // 2lines, 8x5dot fonts.
 //    sendcmd(addr, 0x08, 0xff); // Display OFF.
  //   sendcmd(addr, 0x0c, 0xff); // Display ON.

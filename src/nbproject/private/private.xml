@@ -4,7 +4,12 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/whatisthis/src/OpenI2CRadio.v1.0/DongleConv.X/nbproject/Makefile-default.mk</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/lcd_aqm0802.c</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/i2c_io.h</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/main.c</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/generaldef.h</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/i2c_io.c</file>
+            <file>file:/home/whatisthis/src/Advanced_Dongle_Receiver/src/lcd_aqm0802.h</file>
         </group>
     </open-files>
 </project-private>

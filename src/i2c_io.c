@@ -40,9 +40,13 @@ void i2c1_init(void)
  //   SSPCON1bits.SSPEN = 1;
 //    SSPCON1bits.SSPM3 = 1;
 //    SSPADD = 4; // Fosc:8000[KHz] / (4 * I2C:Clock:400[KHz]) - 1
-//    SSPSTAT = 0x80;
+    SSPSTAT = 0x80;
     PIR1bits.SSPIF = 0;
     PIE1bits.SSPIE = 0;
+    SSPCON3bits.PCIE = 0;
+    SSPCON3bits.SCIE = 0;
+    SSPCON3bits.SDAHT = 1;
+ 
 //    IPR1bits.SSPIP = 1;
 }
 void i2c2_init(void)
@@ -57,6 +61,7 @@ void OpenI2CMaster(void)
     SSPCON1 = 0x08;  // SSPM = 0x08
     SSPCON2 = 0x00;
     SSPCON1bits.SSPEN = 1;
+    
 }
 
 void CloseI2C(void)
@@ -71,20 +76,21 @@ void WaitI2CMaster(void)
 
 void StartI2CMaster(void)
 {
-    WaitI2CMaster();
+//    SSPCON2bits.RCEN = 0;
     SSPCON2bits.SEN = 1;
+    WaitI2CMaster();
 }
 
 void WriteI2CMaster(unsigned char data)
 {
-    WaitI2CMaster();
     SSPBUF = data;
+    WaitI2CMaster();
 }
 
 void StopI2CMaster(void)
 {
-    WaitI2CMaster();
     SSPCON2bits.PEN = 1;
+    WaitI2CMaster();
 }
 
 // I2C_IO
@@ -92,14 +98,14 @@ void i2c_send_byte(unsigned char addr, unsigned char reg, unsigned char data)
 {
     OpenI2CMaster();
     StartI2CMaster();
-    //while (SSPCON2bits.SEN);
+    //while (SSPCON2bits.ACKSTAT);
     WriteI2CMaster(addr);
-    //while(SSPCON2bits.SEN);
+    //while(SSPCON2bits.ACKSTAT);
     WriteI2CMaster(reg);
-    //while(SSPCON2bits.SEN);
+    //while(SSPCON2bits.ACKSTAT);
     WriteI2CMaster(data);
     StopI2CMaster();
-    while (SSPCON2bits.PEN);
+    //while (SSPCON2bits.PEN);
     CloseI2C();
 }
 

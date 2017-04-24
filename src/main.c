@@ -131,17 +131,20 @@ void wait_tmr1(unsigned int tick)
 }
 void accept_command(void)
 {
-        LATBbits.LATB4 = 1;
+        LATAbits.LATA7 = 1;
         wait_tmr1(50);
-        LATBbits.LATB4 =  0;
+        LATAbits.LATA7 =  0;
 }
 
 void reset_switches(void)
 {
     INTCONbits.IOCIE = 1;
     INTCONbits.IOCIF = 0;
+    INTCONbits.PEIE = 1;
+    INTCONbits.INTF = 0;
     IOCBPbits.IOCBP = 0x00;
     IOCBNbits.IOCBN = 0b00000111;
+    IOCBF = 0x00;
     sw1_pressed = 0;
     sw2_pressed = 0;
     sw3_pressed = 0;
@@ -262,8 +265,8 @@ void interrupt intr_handler(void)
            sw3_pressed = 1;
         }
         INTCONbits.IOCIF = 0;
-        LATBbits.LATB4 = (LATBbits.LATB4 == 0) ? 1 : 0;
-    }
+       // LATAbits.LATA6 = (LATAbits.LATA6 == 0) ? 1 : 0;
+   }
 #endif
     if(PIR1bits.ADIF == 1) {
         PIR1bits.ADIF = 0;
@@ -309,9 +312,9 @@ void out_dac(void)
             break;
     }
     sprintf(sbuf, "ATT: %d", dac_level);
-    aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
+    aqm0802_locate_8x2(LCD_I2CADDR, 10, 1);
     aqm0802_putstr(LCD_I2CADDR, "        ");
-    aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
+    aqm0802_locate_8x2(LCD_I2CADDR, 10, 1);
     aqm0802_putstr(LCD_I2CADDR, sbuf);
     set_dac(nn);
 }
@@ -326,10 +329,11 @@ int main(void)
     sw1_pressed = 0;
     sw2_pressed = 0;
     sw3_pressed = 0;
-       //ANSELA = 0x00;
+    ANSELA = 0x00;
+    ANSELB = 0x00;
     //TRISB = 0b00000111;
 //    ANSELBbits.ANSB0 = 1;
-    TRISA = 0b11000011;
+    TRISA = 0b00000011;
     LATA  = 0b11011111;
 
     TRISB = 0b11000111;
@@ -337,7 +341,7 @@ int main(void)
     LCDCONbits.LCDEN = 0;
     SSPCONbits.SSPEN = 0;
     
-    TRISC = 0b11100000;
+    TRISC = 0b11111000;
     LATC = 0b11111100;
     
     FVRCONbits.FVREN = 1;
@@ -357,18 +361,27 @@ int main(void)
     INTCONbits.GIE = 1;
     INTCONbits.IOCIE = 1;
     INTCONbits.IOCIF = 0;
+    
     OPTION_REGbits.nWPUEN = 1;
     intstat_tmr1 = 0;
     reset_switches();
     
+    i2c1_init();
     aqm0802_init(LCD_I2CADDR, 0xff);
     aqm0802_putstr(LCD_I2CADDR, "WELCOME!");
     aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
     
+    sprintf(sbuf, "ATT: %d", dac_level);
+    aqm0802_locate_8x2(LCD_I2CADDR, 10, 1);
+    aqm0802_putstr(LCD_I2CADDR, "        ");
+    aqm0802_locate_8x2(LCD_I2CADDR, 10, 1);
+    aqm0802_putstr(LCD_I2CADDR, sbuf);
+    aqm0802_dispcursor(LCD_I2CADDR, 0);
+    
     receiver_mode = receiver_swmw;
     change_receiver(receiver_mode);
-    LATBbits.LATB4 =  1;
-    LATBbits.LATB5 =  1;
+    LATAbits.LATA6 =  1;
+    LATAbits.LATA7 =  0;
     
     
    //reset_switches();
