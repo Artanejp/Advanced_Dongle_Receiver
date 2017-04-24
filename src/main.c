@@ -59,6 +59,23 @@
 #pragma config BORV = LO        // 電源電圧降下常時監視電圧(2.5V)設定(HI)
 #pragma config LVP = OFF        // 低電圧プログラミング機能使用しない(OFF)
 
+// I/O Define:
+// RE0 : VPP / *RESET
+// RA2 : DAC
+// RA3 : SEL AMP1 (High = ON)
+// RA4 : SEL AMP2 (High = ON)
+// RA5 : SEL AMP3 (High = ON)
+// RC0 : POW AMP1 (Low = ON)
+// RC1 : POW AMP2 (Low = ON)
+// RC2 : POW AMP3 (Low = ON)
+// RC3 : SCL
+// 
+// RC4 : SDA
+// RB0 : SW1
+// RB1 : SW2
+// RB3 : SW3
+// RB6 : ICSPCLK
+// RB7 : ICSPDAT
 /*
  * Statuses
   */
@@ -180,14 +197,14 @@ void check_sw3(void)
 
 void change_receiver(int type)
 {
-    unsigned char ntmp = LATA & 0b11100011;
+    unsigned char ntmp = LATA & 0b11000111;
     switch(type){
         case receiver_swmw:
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "        ");
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "SW/MW");
-            LATA = ntmp | 0b00000100 ;
+            LATA = ntmp | 0b00001000 ;
             LATC = 0b00000110;
             break;
         case receiver_fm:
@@ -196,7 +213,7 @@ void change_receiver(int type)
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "FM1");
             LATC = 0b00000101;
-            LATA = ntmp | 0b00001000;
+            LATA = ntmp | 0b00010000;
             break;
         case receiver_uhf:
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
@@ -204,7 +221,7 @@ void change_receiver(int type)
             aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
             aqm0802_putstr(LCD_I2CADDR, "ANT2");
             LATC = 0b00000011;
-            LATA = ntmp | 0b00010000;
+            LATA = ntmp | 0b00100000;
             break;
     }
 }
