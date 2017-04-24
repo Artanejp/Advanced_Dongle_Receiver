@@ -1,8 +1,8 @@
 /*
- * Inteligent Dongle
+ * OpenI2CRADIO
  * Config & Main routine.
- * Copyright (C) 2016-03-16 K.Ohta <whatisthis.sowhat ai gmail.com>
- * License: GPLv2+LE, because use Microchip's XC8 compiler to build.
+ * Copyright (C) 2013-06-10 K.Ohta <whatisthis.sowhat ai gmail.com>
+ * License: GPL2+LE
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,30 +31,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lcd_aqm0802.h"
+
 #include <xc.h>
 #include <signal.h>
+
 
 /*
  * Config words.
  */
-// CONFIG1
-#pragma config FOSC = INTOSC    // Use internal Oscilator.
-#pragma config WDTE = OFF       // Not using WDT
-#pragma config PWRTE = ON       // Use warm start.
-#pragma config MCLRE = ON      // Use 1 pin instead of RESET.
-#pragma config CP = OFF         // Not protect program-memory.
-#pragma config CPD = OFF        // Not protect data-meomory,
-#pragma config BOREN = OFF     // BOR enabled.
-#pragma config CLKOUTEN = OFF   // Not output clock to RA6.
-#pragma config IESO = OFF       // Not changing to external clock.
-#pragma config FCMEN = OFF      // Not using fail-safe colck.
+// コンフィギュレーション１の設定
+#pragma config FOSC = INTOSC    // 内部ｸﾛｯｸを使用する(INTOSC)
+#pragma config WDTE = OFF       // ｳｵｯﾁﾄﾞｯｸﾞﾀｲﾏｰ無し(OFF)
+#pragma config PWRTE = ON       // 電源ONから64ms後にﾌﾟﾛｸﾞﾗﾑを開始する(ON)
+#pragma config MCLRE = ON      // 外部ﾘｾｯﾄ信号は使用せずにﾃﾞｼﾞﾀﾙ入力(RA5)ﾋﾟﾝとする(OFF)
+#pragma config CP = OFF         // ﾌﾟﾛｸﾞﾗﾑﾒﾓﾘｰを保護しない(OFF)
+#pragma config CPD = OFF        // ﾃﾞｰﾀﾒﾓﾘｰを保護しない(OFF)
+#pragma config BOREN = OFF     // 電源電圧降下常時監視機能ON(ON)
+#pragma config CLKOUTEN = OFF   // CLKOUTﾋﾟﾝをRA6ﾋﾟﾝで使用する(OFF)
+#pragma config IESO = OFF       // 外部・内部ｸﾛｯｸの切替えでの起動はなし(OFF)
+#pragma config FCMEN = OFF      // 外部ｸﾛｯｸ監視しない(FCMEN_OFF)
 
-// CONFIG2
-#pragma config WRT = OFF        // Not protect flash (program) memories.
-#pragma config PLLEN = OFF      // PLL disabled
-#pragma config STVREN = ON      // Reset when stack corrupted.
-#pragma config BORV = LO        // BOR = low voltage.
-#pragma config LVP = OFF        // Not using low-voltage-programming.
+// コンフィギュレーション２の設定
+#pragma config WRT = OFF        // Flashﾒﾓﾘｰを保護しない(OFF)
+#pragma config PLLEN = OFF      // 動作クロックを32MHzでは動作させない(OFF)
+#pragma config STVREN = ON      // スタックがオーバフローやアンダーフローしたらリセットをする(ON)
+#pragma config BORV = LO        // 電源電圧降下常時監視電圧(2.5V)設定(HI)
+#pragma config LVP = OFF        // 低電圧プログラミング機能使用しない(OFF)
 
 /*
  * Statuses
@@ -70,14 +73,17 @@ int receiver_mode;
 int sw1_pressed;
 int sw2_pressed;
 int sw3_pressed;
+unsigned char dac_level;
+//#define _LCD_DEBUG 1
+char sbuf[64];
 
-// Set Timer 1 : 1Tick = 1ms, but count per 1/62.5 ms.
-// Timer limit : MAYBE 1048ms.
+void out_dac(void);
+// Set Timer 1 : 1Tick = 1ms, but count per 2.048ms
 void set_timer1(unsigned int tick)
 {
     unsigned long t = (unsigned long)tick;
-    t = t * (500 / 4) ;
-    t = t / 2;
+    t = t * (2000 / (4 * 2)) ;
+    //t = t / 2;
     if(t > 65535) t = 65535;
     if(t == 0) return;
     tick = 65535 - (unsigned int)t + 1;
@@ -102,15 +108,15 @@ void set_timer1(unsigned int tick)
 
 void wait_tmr1(unsigned int tick)
 {
-    set_timer1(tick);
-    while(intstat_tmr1 == 0) {};
-    intstat_tmr1 = 0;
+        set_timer1(tick); // 0.1 Sec
+        while(intstat_tmr1 == 0) {};
+        intstat_tmr1 = 0;
 }
 void accept_command(void)
 {
-    LATBbits.LATB5 = 1;
-    wait_tmr1(50);
-    LATBbits.LATB5 =  0;
+        LATBbits.LATB4 = 1;
+        wait_tmr1(50);
+        LATBbits.LATB4 =  0;
 }
 
 void reset_switches(void)
@@ -124,12 +130,12 @@ void reset_switches(void)
     sw3_pressed = 0;
 }
 
-// Check push switches: For polling.
 void check_sw1(void)
 {
     int i;
-
+    //IOCBPbits.IOCBP = 0x00;
     if(PORTBbits.RB0 == 0) {
+        //IOCBNbits.IOCBN = 0b00000110;
         sw1_pressed = 0;
         for(i = 0; i < 10; i++) {
             wait_tmr1(4);
@@ -137,13 +143,15 @@ void check_sw1(void)
         }
         if(i >= 10) sw1_pressed = 1;
     }
+    //IOCBNbits.IOCBN = 0x00;
 }
 
 void check_sw2(void)
 {
     int i;
-
+    //IOCBPbits.IOCBP = 0x00;
     if(PORTBbits.RB1 == 0) {
+        //IOCBNbits.IOCBN = 0b00000101;
         sw2_pressed = 0;
         for(i = 0; i < 10; i++) {
             wait_tmr1(4);
@@ -151,13 +159,15 @@ void check_sw2(void)
         }
         if(i >= 10) sw2_pressed = 1;
     }
+    //IOCBNbits.IOCBN = 0x00;
 }
 
 void check_sw3(void)
 {
     int i;
-
+    //IOCBPbits.IOCBP = 0x00;
     if(PORTBbits.RB2 == 0) {
+        //IOCBNbits.IOCBN = 0b00000101;
         sw3_pressed = 0;
         for(i = 0; i < 10; i++) {
             wait_tmr1(4);
@@ -165,31 +175,40 @@ void check_sw3(void)
         }
         if(i >= 10) sw3_pressed = 1;
     }
+    //IOCBNbits.IOCBN = 0x00;
 }
 
-// Change using circuit of frontend.
-// 0 : MW/SW using +100MHz mixer from 1st input.
-// 1: Pass through from 1st input.Mostly FM broadcast
-//    and VHF AIR band.
-// 2: Pass through from 2nd input. Mostly higher
-//    frequencies (i.e. 430MHz band).
-// Anther values are ignored (not change).
 void change_receiver(int type)
 {
+    unsigned char ntmp = LATB & 0b11000111;
     switch(type){
         case receiver_swmw:
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "        ");
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "SW/MW");
+            LATB = ntmp | 0b00110000 ;
             LATC = 0b00000001;
             break;
         case receiver_fm:
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "        ");
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "FM1");
             LATC = 0b00000010;
+            LATB = ntmp | 0b00101000 ;
             break;
         case receiver_uhf:
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "        ");
+            aqm0802_locate_8x2(LCD_I2CADDR, 0, 1);
+            aqm0802_putstr(LCD_I2CADDR, "ANT2");
             LATC = 0b00000100;
+            LATB = ntmp | 0b00011000 ;
             break;
     }
 }
 
-// Interrupt handler.
 void interrupt intr_handler(void)
 {
     
@@ -209,11 +228,12 @@ void interrupt intr_handler(void)
         T1CONbits.T1OSCEN = 0;
         if(intstat_tmr1 == 0) intstat_tmr1 = 1;
     }
-
+#if 1
     if(INTCONbits.IOCIF == 1) {
         INTCONbits.IOCIF = 0;
         if(IOCBFbits.IOCBF0 == 1) {
            IOCBFbits.IOCBF0 = 0;
+           //check_sw1();
            sw1_pressed = 1;
        }
         if(IOCBFbits.IOCBF1 == 1) {
@@ -225,85 +245,130 @@ void interrupt intr_handler(void)
            sw3_pressed = 1;
         }
         INTCONbits.IOCIF = 0;
+        LATBbits.LATB4 = (LATBbits.LATB4 == 0) ? 1 : 0;
     }
-
+#endif
     if(PIR1bits.ADIF == 1) {
         PIR1bits.ADIF = 0;
     }
 }
 
+void set_dac(unsigned char level)
+{
+    if((level == 0xff) && (DACCON0bits.DACEN != 0) ) {
+        //DACCON0bits.DACOE = 0;
+        //FVRCONbits.FVREN = 0;
+        //DACCON0bits.DACEN = 0;
+        DACCON1 = 0x00;
+    } else {
+        if(DACCON0bits.DACEN == 0) {
+            DACCON0bits.DACPSS= 0x02; // FVR Buffer 2
+            DACCON0bits.DACNSS = 0;
+            DACCON0bits.DACEN = 1;
+        }
+        FVRCONbits.FVREN = 1;
+        FVRCONbits.ADFVR = 0x00;
+        FVRCONbits.CDAFVR = 0x01;
+        while(FVRCONbits.FVRRDY == 0) {}
+        DACCON1 = level & 0x1f;
+        DACCON0bits.DACOE = 1;
+    }
+}
+
+void out_dac(void)
+{
+    unsigned char nn;
+    dac_level += 1;
+    if(dac_level > 8) dac_level = 0;
+    switch(dac_level) {
+        case 0:
+            nn = 0xff;
+            break;
+        case 8:
+            nn = 0x1f;
+            break;
+        default:
+            nn = dac_level * 3 + 8;
+            break;
+    }
+    sprintf(sbuf, "ATT: %d", dac_level);
+    aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
+    aqm0802_putstr(LCD_I2CADDR, "        ");
+    aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
+    aqm0802_putstr(LCD_I2CADDR, sbuf);
+    set_dac(nn);
+}
+
+
 int main(void)
 {
     int i;
-	// Clock is internal RC(MF): 500KHz.
-    OSCCON = 0b00111010 ;
-
-	// PORTA: Still not used.
-	// But, DAC will be using for attenuator.
-    //ANSELA = 0x00;
-
-	// PORTB : UI switches and LEDs.
-	// B0 : SW1 (input)
-	// B1 : SW2 (input)
-	// B2 : SW3 (input)
-	// B3 : SW4 (input) : Reserved.
-	// B4 : LED1 (output) : Positive logic.
-	// B5 : LED2 (output) : Positive Logic.
-	// B6 : ICSP (maybe output)
-	// B7 : ICSP (maybe output)
-    ANSELB = 0b00000000;
-	
-    TRISBbits.TRISB0 = 1;
-    TRISBbits.TRISB1 = 1;
-    TRISBbits.TRISB2 = 1;
-    TRISBbits.TRISB3 = 0;
+    OSCCON = 0b01100010 ; // 2MHz, HF intosc
     
-    TRISBbits.TRISB4 = 0;
-    TRISBbits.TRISB5 = 0;
+    dac_level = 0x00;
+    sw1_pressed = 0;
+    sw2_pressed = 0;
+    sw3_pressed = 0;
+       //ANSELA = 0x00;
+    //TRISB = 0b00000111;
+//    ANSELBbits.ANSB0 = 1;
+    TRISA = 0b11000011;
+    LATA  = 0b11011111;
+
+    TRISB = 0b11000111;
     
     LCDCONbits.LCDEN = 0;
     SSPCONbits.SSPEN = 0;
-	
-	// PORTC: Switches of frontend.
-	// C0: MW/SW(Input1)
-	// C1: FM(Input1)
-	// C2: Input2
-	// C4, C5 : I2C (Reserved now)
-	// C6, C7 : Usart (Reserved now).
-    TRISC = 0b11111000;
+    
+    TRISC = 0b11100000;
     LATC = 0b11111100;
     
-
-	// Enable interrupts:
+    FVRCONbits.FVREN = 1;
+    FVRCONbits.ADFVR = 0x00;
+    FVRCONbits.CDAFVR = 0x01;
+    while(FVRCONbits.FVRRDY == 0) {}
+    
+    DACCON0bits.DACOE = 1;
+    DACCON0bits.DACPSS= 0x02; // FVR Buffer 2
+    DACCON0bits.DACNSS = 0;
+    DACCON0bits.DACEN = 1;
+    DACCON1 = 0x00;
+    
     INTCONbits.INTE = 1;
     WDTCONbits.SWDTEN = 0;
     INTCONbits.PEIE = 1;
     INTCONbits.GIE = 1;
     INTCONbits.IOCIE = 1;
     INTCONbits.IOCIF = 0;
-	
     OPTION_REGbits.nWPUEN = 1;
-
-	// Clear timer:
     intstat_tmr1 = 0;
     reset_switches();
+    
+    aqm0802_init(LCD_I2CADDR, 0xff);
+    aqm0802_putstr(LCD_I2CADDR, "WELCOME!");
+    aqm0802_locate_8x2(LCD_I2CADDR, 0, 0);
+    
     receiver_mode = receiver_swmw;
     change_receiver(receiver_mode);
-	// LED1 = OFF, LED2 = OFF.
     LATBbits.LATB4 =  1;
-    LATBbits.LATB5 =  0;
-	// Main Loop.
+    LATBbits.LATB5 =  1;
+    
+    
+   //reset_switches();
     do {
         reset_switches();
-		// Sleep until button(s) will be pressed. 
         SLEEP();
         if(sw3_pressed != 0) {
             receiver_mode++;
             if(receiver_mode >= 3) receiver_mode = 0;
+            sw1_pressed = 0;
        }
         if(sw1_pressed != 0) {
             receiver_mode--;
             if(receiver_mode < 0) receiver_mode = 2;
+        }
+        if(sw2_pressed != 0) {
+            out_dac();
         }
        change_receiver(receiver_mode);
        accept_command();
